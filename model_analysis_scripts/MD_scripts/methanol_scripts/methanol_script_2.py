@@ -33,7 +33,6 @@ def check_clash(query_sites, query_radii, obstacle_coords, obstacle_radii):
     return False
 
 
-# --- Your Functions ---
 def extract_water_xyz(input_pdb):
     pdb_inp = iotbx.pdb.input(file_name = input_pdb)
     hierarchy = pdb_inp.construct_hierarchy() 
@@ -60,10 +59,10 @@ def generate_methanols(seed, pdb_inp, output_file):
 
     num_methanols = 2322
 
-    # Load the protein/system to act as our initial obstacles
+    # load the protein/system to act as our initial obstacles
     sys_hierarchy = pdb_inp.construct_hierarchy()
     
-    # Extract protein atoms as obstacles (ignoring waters so methanols CAN overlap them initially)
+    # extract protein atoms as obstacles (ignoring waters so methanols can overlap them initially)
     cache = sys_hierarchy.atom_selection_cache()
     prot_sel = cache.selection("not (resname SOL or resname WAT or resname HOH)")
     prot_atoms = sys_hierarchy.atoms().select(prot_sel)
@@ -71,18 +70,18 @@ def generate_methanols(seed, pdb_inp, output_file):
     obs_coords = prot_atoms.extract_xyz()
     obs_radii = flex.double([get_vdw(a.element) for a in prot_atoms])
 
-    # Load the base methanol
+    # load the base methanol
     methanol_pdb = iotbx.pdb.input(file_name="/Users/yyklab/Desktop/eden/model_analysis_scripts/MD_scripts/methanol_scripts/methanol_simulation_v1/methanol.pdb")
     base_hierarchy = methanol_pdb.construct_hierarchy()
     base_atoms = base_hierarchy.atoms()
     base_sites = base_atoms.extract_xyz()
     meth_radii = [get_vdw(a.element) for a in base_atoms]
 
-    # This creates a full copy of the original system (protein + original waters)
+    # this creates a full copy of the original system (protein + original waters)
     out_hierarchy = sys_hierarchy.deep_copy()
     out_model = out_hierarchy.models()[0] 
 
-    # We will store just the methanol coordinates here to check against waters later
+    # we will store just the methanol coordinates here to check against waters later
     meth_only_coords = flex.vec3_double()
     meth_only_radii = flex.double()
 
@@ -90,9 +89,8 @@ def generate_methanols(seed, pdb_inp, output_file):
     attempts = 0
     max_attempts = 1000000 
 
-    print(f"Attempting to place {num_methanols} methanols...")
+    print(f"attempting to place {num_methanols} methanols...")
 
-    # --- 1. PLACEMENT PHASE ---
     while placed < num_methanols and attempts < max_attempts:
         attempts += 1
         
@@ -123,15 +121,15 @@ def generate_methanols(seed, pdb_inp, output_file):
             
             placed += 1
             if placed % 500 == 0:
-                print(f"Placed {placed} / {num_methanols} methanols...")
+                print(f"placed {placed} / {num_methanols} methanols...")
 
     if placed < num_methanols:
-        print(f"Warning: Only placed {placed} methanols due to space constraints.")
+        print(f"warning: only placed {placed} methanols due to space constraints.")
     else:
-        print("Success! All methanols placed.")
+        print("success! all methanols placed.")
 
     # --- 2. WATER CLEANUP PHASE (OXYGEN ONLY) ---
-    print("Scanning for overlapping water molecules (checking Oxygens only)...")
+    print("scanning for overlapping water molecules (check oxygens only)...")
     waters_removed = 0
     
     for model in out_hierarchy.models():
@@ -160,7 +158,7 @@ def generate_methanols(seed, pdb_inp, output_file):
                 chain.remove_residue_group(rg)
                 waters_removed += 1
 
-    print(f"Cleanup complete: Removed {waters_removed} clashing water molecules.")
+    print(f"cleanup complete: removed {waters_removed} clashing water molecules.")
 
     out_hierarchy.write_pdb_file(file_name=output_file, crystal_symmetry=symmetry)
 
