@@ -13,7 +13,7 @@ def remove_random_waters(input_pdb, output_pdb, num_to_remove, seed):
 
     for model in hierarchy.models():
         for chain in model.chains():
-            for rg in chain.residue_groups():
+            for rg in chain.residue_groups(): # residue groups
                 resname = rg.atom_groups()[0].resname.strip()
                 if resname in ["SOL", "WAT", "HOH"]:
                     water_residue_groups.append((chain, rg))

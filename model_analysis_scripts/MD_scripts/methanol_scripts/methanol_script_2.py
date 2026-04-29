@@ -71,7 +71,7 @@ def generate_methanols(seed, pdb_inp, output_file):
     obs_radii = flex.double([get_vdw(a.element) for a in prot_atoms])
 
     # load the base methanol
-    methanol_pdb = iotbx.pdb.input(file_name="/Users/yyklab/Desktop/eden/model_analysis_scripts/MD_scripts/methanol_scripts/methanol_simulation_v1/methanol.pdb")
+    methanol_pdb = iotbx.pdb.input(file_name="/Users/yyklab/Downloads/methanol.pdb")
     base_hierarchy = methanol_pdb.construct_hierarchy()
     base_atoms = base_hierarchy.atoms()
     base_sites = base_atoms.extract_xyz()
