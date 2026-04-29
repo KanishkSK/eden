@@ -10,12 +10,10 @@ VDW_RADII = {
 }
 
 def get_vdw(element):
-    """Retrieve vdW radius based on the atom's element symbol."""
     element = element.strip().upper()
     return VDW_RADII.get(element, 1.5)
 
 def check_clash(query_sites, query_radii, obstacle_coords, obstacle_radii):
-    """Checks if any query atom clashes with any obstacle atom."""
     if len(obstacle_coords) == 0:
         return False
         
@@ -24,8 +22,7 @@ def check_clash(query_sites, query_radii, obstacle_coords, obstacle_radii):
         diff = obstacle_coords - q_site
         dists_sq = diff.dot() 
         
-        # 0.8 * (r1 + r2) squared for fast comparison
-        thresholds = 0.8 * (obstacle_radii + q_rad)
+        thresholds = 0.8 * (obstacle_radii + q_rad) # using square distances for faster computation, square roots take a lot of time to compute
         thresholds_sq = thresholds * thresholds
         
         if (dists_sq < thresholds_sq).count(True) > 0:
@@ -59,25 +56,21 @@ def generate_methanols(seed, pdb_inp, output_file):
 
     num_methanols = 2322
 
-    # load the protein/system to act as our initial obstacles
-    sys_hierarchy = pdb_inp.construct_hierarchy()
+    sys_hierarchy = pdb_inp.construct_hierarchy()# hierarchy
     
-    # extract protein atoms as obstacles (ignoring waters so methanols can overlap them initially)
     cache = sys_hierarchy.atom_selection_cache()
-    prot_sel = cache.selection("not (resname SOL or resname WAT or resname HOH)")
+    prot_sel = cache.selection("not (resname SOL or resname WAT or resname HOH)") # selection syntax
     prot_atoms = sys_hierarchy.atoms().select(prot_sel)
     
     obs_coords = prot_atoms.extract_xyz()
     obs_radii = flex.double([get_vdw(a.element) for a in prot_atoms])
 
-    # load the base methanol
     methanol_pdb = iotbx.pdb.input(file_name="/Users/yyklab/Downloads/methanol.pdb")
     base_hierarchy = methanol_pdb.construct_hierarchy()
     base_atoms = base_hierarchy.atoms()
     base_sites = base_atoms.extract_xyz()
     meth_radii = [get_vdw(a.element) for a in base_atoms]
 
-    # this creates a full copy of the original system (protein + original waters)
     out_hierarchy = sys_hierarchy.deep_copy()
     out_model = out_hierarchy.models()[0] 
 
@@ -100,7 +93,7 @@ def generate_methanols(seed, pdb_inp, output_file):
         
         translated_sites = base_sites + (dx, dy, dz)
         
-        # Check against protein AND previously placed methanols
+        # check against protein AND previously placed methanols
         if not check_clash(translated_sites, meth_radii, obs_coords, obs_radii):
             methanol_copy = base_hierarchy.deep_copy()
             methanol_copy.atoms().set_xyz(translated_sites)
@@ -111,11 +104,11 @@ def generate_methanols(seed, pdb_inp, output_file):
                     rg.resseq = str(placed + 1)
                 out_model.append_chain(chain_copy)
 
-            # Add to the general obstacle pool (so future methanols don't clash)
+            # add to the general obstacle pool (so future methanols don't clash)
             obs_coords.extend(translated_sites)
             obs_radii.extend(flex.double(meth_radii))
             
-            # Add to the methanol-only pool (so we can check waters later)
+            # add to the methanol-only pool (so we can check waters later)
             meth_only_coords.extend(translated_sites)
             meth_only_radii.extend(flex.double(meth_radii))
             
@@ -128,7 +121,6 @@ def generate_methanols(seed, pdb_inp, output_file):
     else:
         print("success! all methanols placed.")
 
-    # --- 2. WATER CLEANUP PHASE (OXYGEN ONLY) ---
     print("scanning for overlapping water molecules (check oxygens only)...")
     waters_removed = 0
     
@@ -140,17 +132,17 @@ def generate_methanols(seed, pdb_inp, output_file):
                 resname = rg.atom_groups()[0].resname.strip()
                 if resname in ["SOL", "WAT", "HOH"]:
                     
-                    # Create flex arrays just for the Oxygen(s) in this water molecule
+                    # create flex arrays just for the oxygen(s) in this water molecule
                     ox_sites = flex.vec3_double()
                     ox_radii = flex.double()
                     
                     for atom in rg.atoms():
-                        # Identify oxygen by element symbol or common atom names
+                        # identify oxygen by element symbol or common atom names
                         if atom.element.strip().upper() == "O" or atom.name.strip() in ["O", "OW", "OH2"]:
                             ox_sites.append(atom.xyz)
                             ox_radii.append(get_vdw(atom.element))
                     
-                    # If we found an oxygen and it clashes, flag the ENTIRE water residue for removal
+                    # if we found an oxygen and it clashes
                     if len(ox_sites) > 0 and check_clash(ox_sites, ox_radii, meth_only_coords, meth_only_radii):
                         rgs_to_remove.append(rg)
             
